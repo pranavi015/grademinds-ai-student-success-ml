@@ -4,6 +4,7 @@ import numpy as np
 import joblib
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
+import os
 
 # ─────────────────────────────────────────────
 #  PAGE CONFIG
@@ -111,9 +112,16 @@ st.markdown("<div class='main-content'>", unsafe_allow_html=True)
 #  HELPERS
 # ─────────────────────────────────────────────
 @st.cache_resource
+@st.cache_resource
 def load_model():
-    model    = joblib.load("best_model.pkl")
-    features = joblib.load("feature_names.pkl")
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+    model_path = os.path.join(BASE_DIR, "best_model.pkl")
+    features_path = os.path.join(BASE_DIR, "feature_names.pkl")
+
+    model = joblib.load(model_path)
+    features = joblib.load(features_path)
+
     return model, features
 
 
