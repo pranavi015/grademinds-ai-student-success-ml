@@ -112,9 +112,10 @@ st.markdown("<div class='main-content'>", unsafe_allow_html=True)
 # ─────────────────────────────────────────────
 @st.cache_resource
 def load_model():
-    model    = joblib.load("best_model.pkl")
-    features = joblib.load("feature_names.pkl")
-    return model, features
+    clf_model = joblib.load("models/decision_tree_classifier.pkl")
+    reg_model = joblib.load("models/linear_regression_model.pkl")
+    features = ["Study_Hours_per_Week", "Attendance_Rate", "Past_Exam_Scores", "Extracurricular_Activities_Yes"]
+    return clf_model, reg_model, features
 
 
 def assign_cluster_label(row):
@@ -358,11 +359,11 @@ else:
     st.markdown("<div class='page-subtitle'>Enter a student's academic profile to predict their exam outcome and receive tailored guidance for educators.</div>", unsafe_allow_html=True)
 
     try:
-        model, feature_names = load_model()
+        clf_model, reg_model, feature_names = load_model()
         model_loaded = True
     except:
         model_loaded = False
-        st.warning("Model files not found. Make sure best_model.pkl and feature_names.pkl are in the same folder as app.py.")
+        st.warning("Model files not found. Make sure models/decision_tree_classifier.pkl and models/linear_regression_model.pkl are available.")
 
     with st.form("student_form"):
         st.markdown("<div class='section-title'>Student Profile</div>", unsafe_allow_html=True)
@@ -400,22 +401,18 @@ else:
         submitted = st.form_submit_button("Run Prediction")
 
     if submitted and model_loaded:
-        # Use default/median values for removed fields
         row = pd.DataFrame([[
-            1 if gender == "Male" else 0,
             study_hours, attendance, past_scores,
-            1,  # internet_access default Yes
             1 if extracurricular == "Yes" else 0,
-            0,  # parental_edu HS default
-            0,  # parental_edu Masters default
-            0,  # parental_edu PhD default
         ]], columns=feature_names)
 
-        pred       = model.predict(row)[0]
-        prob       = model.predict_proba(row)[0][pred]
-        pred_label = "Pass" if pred == 1 else "Fail"
+        pred = clf_model.predict(row)[0]
+        prob = clf_model.predict_proba(row)[0][list(clf_model.classes_).index(pred)]
+        pred_label = "Pass" if pred in [1, "Pass", "pass"] else "Fail"
+        predicted_final_score = float(reg_model.predict(row)[0])
+        predicted_final_score = max(0.0, min(100.0, predicted_final_score))
         cluster    = assign_cluster_label({
-            "Final_Exam_Score":    past_scores,
+            "Final_Exam_Score":    predicted_final_score,
             "Attendance_Rate":     attendance,
             "Study_Hours_per_Week":study_hours,
         })
@@ -423,7 +420,7 @@ else:
         st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
         st.markdown("<div class='section-title'>Prediction Results</div>", unsafe_allow_html=True)
 
-        r1, r2, r3 = st.columns(3)
+        r1, r2, r3, r4 = st.columns(4)
         with r1:
             badge = "badge-pass" if pred_label == "Pass" else "badge-fail"
             st.markdown(f"""<div class='metric-card'>
@@ -437,6 +434,10 @@ else:
             st.markdown(f"""<div class='metric-card'>
                 <div class='metric-label' style='margin-bottom:12px'>Learner Category</div>
                 <span class='{BADGE_MAP[cluster]}'>{cluster}</span></div>""", unsafe_allow_html=True)
+        with r4:
+            st.markdown(f"""<div class='metric-card'>
+                <div class='metric-value'>{predicted_final_score:.1f}</div>
+                <div class='metric-label'>Predicted Final Score</div></div>""", unsafe_allow_html=True)
 
         # Category description
         st.markdown(f"""
